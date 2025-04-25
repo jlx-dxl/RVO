@@ -1,6 +1,7 @@
 from Node import *
 from matplotlib import pyplot as plt
 from matplotlib import animation
+import matplotlib.patches as patches
 
 class Graph:
     def __init__(self):
@@ -15,20 +16,28 @@ class Graph:
         self.agent_trails = []
         self.start_markers = []
         self.goal_markers = []
+        self.obstacles = []  # <-- 仍然保留但不默认画
         self.anim = None
+
+    def draw_obstacles(self):
+        # 添加中心障碍物（以 4 个灰色方块表示）
+        size = 2.0
+        centers = [(-2, 2), (2, 2), (-2, -2), (2, -2)]
+        for (cx, cy) in centers:
+            rect = patches.Rectangle((cx - size/2, cy - size/2), size, size,
+                                     linewidth=1, edgecolor='r', facecolor='gray', alpha=0.5)
+            self.ax.add_patch(rect)
+            self.obstacles.append(((cx - size/2, cy - size/2), (cx + size/2, cy + size/2)))  # (xmin, ymin), (xmax, ymax)
 
     def addNode(self, n, color):
         self.V.append(n)
         self.Nv += 1
         self.colors.append(color)
-        self.traces.append([n.state[:2].copy()])  # 初始化轨迹记录
-
-        # 绘图元素初始化
-        dot, = self.ax.plot([], [], 'o', color=color)       # 当前点
-        trail, = self.ax.plot([], [], '-', lw=1, color=color)  # 轨迹线
-        start_marker, = self.ax.plot([], [], 's', color=color) # 起点方块
-        goal_marker, = self.ax.plot([], [], '*', color=color)  # 终点星号
-
+        self.traces.append([n.state[:2].copy()])
+        dot, = self.ax.plot([], [], 'o', color=color)
+        trail, = self.ax.plot([], [], '-', lw=1, color=color)
+        start_marker, = self.ax.plot([], [], 's', color=color)
+        goal_marker, = self.ax.plot([], [], '*', color=color)
         self.agent_dots.append(dot)
         self.agent_trails.append(trail)
         self.start_markers.append(start_marker)
@@ -52,14 +61,10 @@ class Graph:
         for idx, node in enumerate(self.V):
             pos = node.state[:2]
             self.traces[idx].append(pos.copy())
-
             xs = [p[0] for p in self.traces[idx]]
             ys = [p[1] for p in self.traces[idx]]
-
             self.agent_dots[idx].set_data([pos[0]], [pos[1]])
             self.agent_trails[idx].set_data(xs, ys)
             self.start_markers[idx].set_data([xs[0]], [ys[0]])
             self.goal_markers[idx].set_data([node.goal[0]], [node.goal[1]])
-
         return self.agent_dots + self.agent_trails + self.start_markers + self.goal_markers
-
