@@ -1,7 +1,7 @@
 import numpy as np
 
 class PyRVOAgent:
-    def __init__(self, uid, position, goal, radius=0.3, max_speed=1.0):
+    def __init__(self, uid, position, goal, radius=0.1, max_speed=1.0):
         self.uid = uid
         self.position = np.array(position)
         self.velocity = np.zeros(2)
@@ -10,13 +10,15 @@ class PyRVOAgent:
         self.max_speed = max_speed
 
 class PyRVOController:
-    def __init__(self, agents, time_step=0.05, neighbor_dist=2.5, time_horizon=3.0, graph=None):
+    def __init__(self, agents, time_step=0.05, neighbor_dist=1.0, time_horizon=3.0, graph=None, num_fallback_samples=60, max_speed=1.0):
         self.time_step = time_step
         self.neighbor_dist = neighbor_dist
         self.time_horizon = time_horizon
+        self.num_fallback_samples = num_fallback_samples
         self.agents = [PyRVOAgent(a.uid, a.state[:2], a.goal) for a in agents]
         self.uid_to_agent = {a.uid: a for a in self.agents}
         self.obstacles = graph.obstacles if graph is not None else []
+        self.max_speed = max_speed
 
     def step(self):
         for a in self.agents:
@@ -36,14 +38,13 @@ class PyRVOController:
                 dist = np.linalg.norm(rel_pos)
                 if dist < 1e-6 or dist > self.neighbor_dist:
                     continue
-
-                combined_radius = a.radius + b.radius
+                combined_radius = self.neighbor_dist
                 if dist < combined_radius:
                     avoid_dir = -rel_pos / dist
                     strength = (combined_radius - dist) / combined_radius
-                    new_vel += 1.0 * strength * avoid_dir
+                    new_vel += 1.2 * strength * avoid_dir
 
-            # === Obstacle soft repulsion ===
+            # === Obstacle repulsion (soft)
             for (min_xy, max_xy) in self.obstacles:
                 closest = np.clip(a.position, min_xy, max_xy)
                 rel = a.position - closest
@@ -51,25 +52,39 @@ class PyRVOController:
                 if dist < 1.0 and dist > 1e-6:
                     avoid_dir = rel / dist
                     strength = (1.0 - dist)
-                    new_vel += 0.8 * strength * avoid_dir
+                    new_vel += 1.2 * strength * avoid_dir
 
-            # === Predict entry into obstacle: block hard ===
+            # === Predict entry into obstacle
             next_pos = a.position + self.time_step * new_vel
             if self.is_in_obstacle(next_pos):
-                new_vel = np.zeros(2)
+                new_vel = self.find_fallback_velocity(a, pref_vel)
 
-            # === Clip velocity ===
+            # === Normalize
             speed = np.linalg.norm(new_vel)
             if speed > a.max_speed:
                 new_vel = a.max_speed * new_vel / speed
 
             a.velocity = new_vel
 
-        # === Final position update with obstacle check ===
         for a in self.agents:
             proposed_pos = a.position + self.time_step * a.velocity
             if not self.is_in_obstacle(proposed_pos):
-                a.position = proposed_pos  # only move if result is valid
+                a.position = proposed_pos
+
+    def find_fallback_velocity(self, agent, pref_vel):
+        best_vel = np.zeros(2)
+        best_cost = float("inf")
+        angles = np.linspace(0, 2 * np.pi, self.num_fallback_samples, endpoint=False)
+        for angle in angles:
+            v = self.max_speed * np.array([np.cos(angle), np.sin(angle)])
+            next_pos = agent.position + self.time_step * v
+            if self.is_in_obstacle(next_pos):
+                continue
+            cost = np.linalg.norm(v - pref_vel)
+            if cost < best_cost:
+                best_cost = cost
+                best_vel = v
+        return best_vel
 
     def is_in_obstacle(self, pos):
         for (min_xy, max_xy) in self.obstacles:

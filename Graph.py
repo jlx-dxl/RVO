@@ -2,6 +2,7 @@ from Node import *
 from matplotlib import pyplot as plt
 from matplotlib import animation
 import matplotlib.patches as patches
+import os
 
 class Graph:
     def __init__(self):
@@ -16,18 +17,19 @@ class Graph:
         self.agent_trails = []
         self.start_markers = []
         self.goal_markers = []
-        self.obstacles = []  # <-- 仍然保留但不默认画
+        self.obstacles = []
         self.anim = None
+        self.frame_output_dir = "frames_circle_with_obstacles_30"
+        self.frame_index = 0
 
     def draw_obstacles(self):
-        # 添加中心障碍物（以 4 个灰色方块表示）
-        size = 2.0
-        centers = [(-2, 2), (2, 2), (-2, -2), (2, -2)]
+        size = 1.5
+        centers = [(-1.5, 1.5), (1.5, 1.5), (-1.5, -1.5), (1.5, -1.5)]
         for (cx, cy) in centers:
             rect = patches.Rectangle((cx - size/2, cy - size/2), size, size,
                                      linewidth=1, edgecolor='r', facecolor='gray', alpha=0.5)
             self.ax.add_patch(rect)
-            self.obstacles.append(((cx - size/2, cy - size/2), (cx + size/2, cy + size/2)))  # (xmin, ymin), (xmax, ymax)
+            self.obstacles.append(((cx - size/2, cy - size/2), (cx + size/2, cy + size/2)))
 
     def addNode(self, n, color):
         self.V.append(n)
@@ -54,6 +56,8 @@ class Graph:
             self.V[i].join()
 
     def setupAnimation(self):
+        if not os.path.exists(self.frame_output_dir):
+            os.makedirs(self.frame_output_dir)
         self.anim = animation.FuncAnimation(self.fig, self.animate, interval=100, blit=False)
         plt.show()
 
@@ -67,4 +71,10 @@ class Graph:
             self.agent_trails[idx].set_data(xs, ys)
             self.start_markers[idx].set_data([xs[0]], [ys[0]])
             self.goal_markers[idx].set_data([node.goal[0]], [node.goal[1]])
+
+        # 保存每帧图像
+        frame_path = os.path.join(self.frame_output_dir, f"frame_{self.frame_index:04d}.png")
+        self.fig.savefig(frame_path)
+        self.frame_index += 1
+
         return self.agent_dots + self.agent_trails + self.start_markers + self.goal_markers

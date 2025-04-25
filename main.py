@@ -32,14 +32,14 @@ def generate_agents(num_agents, scenario_type):
 
 # ==== 主函数入口 ====
 if __name__ == '__main__':
-    num_agents = 20
-    scenario_type = "narrow_passage"  # 可选: "circle", "narrow_passage", "four_corner_cross"
+    num_agents = 30
+    scenario_type = "circle_with_obstacles"
 
-    # 初始化 agent 和控制器
     G, agents = generate_agents(num_agents, scenario_type)
-    # 仅在该场景下添加障碍物图形
-    if scenario_type == "four_corner_cross":
+
+    if scenario_type == "circle_with_obstacles":
         G.draw_obstacles()
+
     rvo_controller = PyRVOController(agents, graph=G)
     metrics = MetricsRecorder(agents)
 
