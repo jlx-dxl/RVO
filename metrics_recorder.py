@@ -1,22 +1,28 @@
+# metrics_recorder.py
+# Implements a utility class for logging and summarizing simulation performance metrics.
+# Tracks steps, collisions, goal completions, and path efficiency of agents during RVO simulation.
+
 import numpy as np
 import time
 
 class MetricsRecorder:
     def __init__(self, agents, radius=0.3):
-        self.agents = agents
-        self.radius = radius
-        self.step_count = 0
-        self.total_step_time = 0.0
-        self.collision_events = 0
-        self.start_positions = {a.uid: np.array(a.state[:2]) for a in agents}
-        self.arrival_times = {}
-        self.goal_threshold = 0.3
-        self.reached_goal = set()
+        # Initialize metrics tracking for a list of agents
+        self.agents = agents                           # List of all agent objects
+        self.radius = radius                           # Agent radius (used for collision detection)
+        self.step_count = 0                            # Total simulation steps recorded
+        self.total_step_time = 0.0                     # Cumulative time spent per step
+        self.collision_events = 0                      # Number of detected near-collisions
+        self.start_positions = {a.uid: np.array(a.state[:2]) for a in agents}  # Initial positions
+        self.arrival_times = {}                        # Step index at which each agent reached goal
+        self.goal_threshold = 0.3                      # Distance threshold to consider goal reached
+        self.reached_goal = set()                      # Set of agent UIDs that reached their goals
 
+    # Call once per simulation step to update metrics
     def record_step(self):
         start_time = time.time()
 
-        # Check for near-collisions
+        # Detect pairwise collisions between agents (based on proximity)
         positions = [a.state[:2] for a in self.agents]
         N = len(positions)
         for i in range(N):
@@ -25,7 +31,7 @@ class MetricsRecorder:
                 if d < 2 * self.radius:
                     self.collision_events += 1
 
-        # Check for goal reached
+        # Check if any agents have newly reached their goal
         for a in self.agents:
             if a.uid in self.reached_goal:
                 continue
@@ -36,11 +42,12 @@ class MetricsRecorder:
         self.total_step_time += time.time() - start_time
         self.step_count += 1
 
+    # Compute a dictionary summary of all metrics tracked so far
     def summarize(self):
         N = len(self.agents)
         collision_rate = self.collision_events / self.step_count if self.step_count else 0
 
-        # Path efficiency = actual path length / straight-line distance
+        # Compute path efficiency: actual distance traveled / straight-line distance
         path_efficiencies = []
         for a in self.agents:
             start = self.start_positions[a.uid]
@@ -64,6 +71,7 @@ class MetricsRecorder:
 
         return summary
 
+    # Print summary statistics to the console in a formatted report
     def print_summary(self):
         summary = self.summarize()
         print("\n===== METRICS SUMMARY =====")
